@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/Users/Zacha/OneDrive/Desktop/Projects/builder/services/orchestrator/pyproject.toml:*)",
+      "Bash(__NEW_LINE_fa01612e28ca71ee__ cat:*)",
+      "Bash(/c/Users/Zacha/OneDrive/Desktop/Projects/builder/services/artifact-store/pyproject.toml:*)",
+      "Bash(/c/Users/Zacha/OneDrive/Desktop/Projects/builder/services/agent-runner/pyproject.toml:*)",
+      "Bash(__NEW_LINE_fa01612e28ca71ee__ echo:*)"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "apf",
+  "private": true,
+  "workspaces": ["services/dashboard"],
+  "scripts": {
+    "dev": "pnpm --filter dashboard dev",
+    "build": "pnpm --filter dashboard build",
+    "test": "pnpm --filter dashboard test",
+    "lint": "pnpm --filter dashboard lint"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

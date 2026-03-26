@@ -1,0 +1,134 @@
+name: apf
+
+# Developer override for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Or via: make dev
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  orchestrator:
+    build:
+      target: development
+    volumes:
+      - ../services/orchestrator/src:/app/src:rw
+      - ../packages/agent-core/src:/workspace/packages/agent-core/src:ro
+      - ../packages/db/src:/workspace/packages/db/src:ro
+      - ../packages/event-bus/src:/workspace/packages/event-bus/src:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+    command: ["uv", "run", "uvicorn", "orchestrator.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/src"]
+    deploy:
+      resources: {}
+
+  agent-runner:
+    build:
+      target: development
+    volumes:
+      - ../services/agent-runner/src:/app/src:rw
+      - ../packages/agent-core/src:/workspace/packages/agent-core/src:ro
+      - ../packages/db/src:/workspace/packages/db/src:ro
+      - ../packages/event-bus/src:/workspace/packages/event-bus/src:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+    command: ["uv", "run", "python", "-m", "agent_runner.worker", "--reload"]
+    deploy:
+      replicas: 1
+      resources: {}
+
+  artifact-store:
+    build:
+      target: development
+    volumes:
+      - ../services/artifact-store/src:/app/src:rw
+      - ../packages/db/src:/workspace/packages/db/src:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+    command: ["uv", "run", "uvicorn", "artifact_store.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    deploy:
+      resources: {}
+
+  github-integration:
+    build:
+      target: development
+    volumes:
+      - ../services/github-integration/src:/app/src:rw
+      - ../packages/agent-core/src:/workspace/packages/agent-core/src:ro
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+    command: ["uv", "run", "uvicorn", "github_integration.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+    deploy:
+      resources: {}
+
+  dashboard:
+    build:
+      target: development
+    volumes:
+      - ../services/dashboard/src:/app/src:rw
+      - ../services/dashboard/public:/app/public:rw
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: ["pnpm", "dev", "--host", "0.0.0.0", "--port", "3000"]
+    ports:
+      - "3000:3000"
+    deploy:
+      resources: {}
+
+  slack-connector:
+    build:
+      target: development
+    volumes:
+      - ../services/slack-connector/src:/app/src:rw
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+    deploy:
+      resources: {}
+
+  jira-connector:
+    build:
+      target: development
+    volumes:
+      - ../services/jira-connector/src:/app/src:rw
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+    deploy:
+      resources: {}
+
+  confluence-connector:
+    build:
+      target: development
+    volumes:
+      - ../services/confluence-connector/src:/app/src:rw
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+    deploy:
+      resources: {}
+
+  aws-connector:
+    build:
+      target: development
+    volumes:
+      - ../services/aws-connector/src:/app/src:rw
+    environment:
+      LOG_LEVEL: DEBUG
+      PYTHONDONTWRITEBYTECODE: "1"
+    deploy:
+      resources: {}

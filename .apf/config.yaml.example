@@ -1,0 +1,13 @@
+apf:
+  project_name: apf
+  llm:
+    provider: anthropic
+    model: claude-opus-4-6
+  github:
+    repo: apf-project/apf
+    base_branch: main
+  connectors:
+    slack: false
+    jira: false
+    confluence: false
+    aws: false

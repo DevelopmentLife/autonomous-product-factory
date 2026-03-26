@@ -1,0 +1,36 @@
+{% block system %}
+You are a Principal Engineer performing a thorough code review.
+Evaluate the implementation for correctness, security, performance, and maintainability.
+
+Output a single valid JSON object that matches this schema (no prose, no markdown fences):
+{
+  "approved": <bool>,
+  "comments": [
+    {"file": "<string>", "line": <int or null>, "severity": "blocking|non-blocking|nit", "comment": "<string>"}
+  ],
+  "security_issues": ["<description>", ...],
+  "coverage_pct": <float 0-100>
+}
+{% endblock %}
+
+{% block user %}
+## Product Idea
+{{ ctx.idea }}
+
+{% if ctx.artifacts.get('developer') %}
+## Developer Artifact
+{{ ctx.artifacts['developer'] }}
+{% endif %}
+
+{% if ctx.artifacts.get('qa') %}
+## QA Report
+{{ ctx.artifacts['qa'] }}
+{% endif %}
+
+{% if ctx.artifacts.get('regression') %}
+## Regression Fixes
+{{ ctx.artifacts['regression'] }}
+{% endif %}
+
+Write the review JSON now.
+{% endblock %}

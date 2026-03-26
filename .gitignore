@@ -1,0 +1,239 @@
+# =============================================================================
+# APF .gitignore
+# Python + Node + Docker + IDE + OS
+# =============================================================================
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# uv
+.uv/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+coverage/
+htmlcov/
+nosetests.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytestdebug.log
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pyright
+pyrightconfig.json
+
+# ruff
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Flask / Django
+instance/
+.webassets-cache
+*.sqlite3
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Sphinx
+docs/_build/
+docs/_autosummary/
+
+# =============================================================================
+# Node / JavaScript / TypeScript
+# =============================================================================
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+.next/
+.nuxt/
+.svelte-kit/
+out/
+.output/
+*.tsbuildinfo
+
+# Test coverage
+lcov.info
+jest-coverage/
+
+# Environment (Next.js style)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log*
+
+# npm / yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Storybook
+storybook-static/
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.p12
+secrets.json
+credentials.json
+service-account.json
+.secrets.baseline
+
+# =============================================================================
+# Docker
+# =============================================================================
+# Ignore generated compose env file
+deploy/.env
+
+# =============================================================================
+# Alembic
+# =============================================================================
+# Keep alembic.ini and env.py under version control
+# Ignore generated migration files only if your team prefers to generate them
+# Uncomment if you want to ignore auto-generated migrations:
+# packages/db/alembic/versions/*.py
+
+# =============================================================================
+# IDEs & Editors
+# =============================================================================
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.code-workspace
+
+# JetBrains (PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+Session.vim
+
+# Emacs
+\#*\#
+.\#*
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# =============================================================================
+# OS
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+.directory
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Logs
+logs/
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Archives
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+
+# Benchmark output
+benchmarks/results/
+
+# Generated OpenAPI specs (committed separately)
+openapi-generated.json

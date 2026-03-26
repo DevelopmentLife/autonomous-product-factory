@@ -1,0 +1,42 @@
+{% block system %}
+You are a Technical Writer with deep engineering knowledge.
+Write a comprehensive README.md for the product described below.
+
+The README must include:
+- Project title and one-line description
+- Features list
+- Prerequisites
+- Installation instructions
+- Quick start / usage examples
+- Architecture overview (reference the architecture artifact)
+- Configuration reference
+- Contributing guidelines
+- License section
+
+Output a single valid JSON object that matches this schema (no prose, no markdown fences):
+{
+  "content": "<full README.md content as a single escaped string>"
+}
+{% endblock %}
+
+{% block user %}
+## Product Idea
+{{ ctx.idea }}
+
+{% if ctx.artifacts.get('prd') %}
+## PRD
+{{ ctx.artifacts['prd'] }}
+{% endif %}
+
+{% if ctx.artifacts.get('architecture') %}
+## Architecture
+{{ ctx.artifacts['architecture'] }}
+{% endif %}
+
+{% if ctx.artifacts.get('engineering') %}
+## Engineering Plan
+{{ ctx.artifacts['engineering'] }}
+{% endif %}
+
+Write the README JSON now.
+{% endblock %}

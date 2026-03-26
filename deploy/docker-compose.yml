@@ -1,0 +1,292 @@
+name: apf
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-apf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apf_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-apf}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    networks:
+      - apf-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apf} -d ${POSTGRES_DB:-apf}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - apf-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-apf_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-apf_minio_password}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - apf-network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  orchestrator:
+    build:
+      context: ../services/orchestrator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-apf_minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-apf_minio_password}
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      APF_JWT_ALGORITHM: ${APF_JWT_ALGORITHM:-HS256}
+      APF_JWT_EXPIRE_MINUTES: ${APF_JWT_EXPIRE_MINUTES:-60}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-4-6}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - apf-network
+
+  agent-runner:
+    build:
+      context: ../services/agent-runner
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-apf_minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-apf_minio_password}
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-4-6}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ARTIFACT_STORE_URL: http://artifact-store:8001
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+    networks:
+      - apf-network
+
+  artifact-store:
+    build:
+      context: ../services/artifact-store
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-apf_minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-apf_minio_password}
+      MINIO_BUCKET: ${MINIO_BUCKET:-apf-artifacts}
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - apf-network
+
+  github-integration:
+    build:
+      context: ../services/github-integration
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - apf-network
+    profiles:
+      - github
+
+  dashboard:
+    build:
+      context: ../services/dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      VITE_ORCHESTRATOR_URL: ${VITE_ORCHESTRATOR_URL:-http://localhost:8000}
+      VITE_ARTIFACT_STORE_URL: ${VITE_ARTIFACT_STORE_URL:-http://localhost:8001}
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-network
+
+  slack-connector:
+    build:
+      context: ../services/slack-connector
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-network
+    profiles:
+      - slack
+
+  jira-connector:
+    build:
+      context: ../services/jira-connector
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JIRA_URL: ${JIRA_URL}
+      JIRA_EMAIL: ${JIRA_EMAIL}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+      JIRA_PROJECT_KEY: ${JIRA_PROJECT_KEY}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-network
+    profiles:
+      - jira
+
+  confluence-connector:
+    build:
+      context: ../services/confluence-connector
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8012:8012"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CONFLUENCE_URL: ${CONFLUENCE_URL}
+      CONFLUENCE_EMAIL: ${CONFLUENCE_EMAIL}
+      CONFLUENCE_API_TOKEN: ${CONFLUENCE_API_TOKEN}
+      CONFLUENCE_SPACE_KEY: ${CONFLUENCE_SPACE_KEY}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-network
+    profiles:
+      - confluence
+
+  aws-connector:
+    build:
+      context: ../services/aws-connector
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8013:8013"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://apf:apf_dev_password@postgres:5432/apf}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ECS_CLUSTER: ${AWS_ECS_CLUSTER}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      APF_SECRET_KEY: ${APF_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-network
+    profiles:
+      - aws
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  apf-network:
+    driver: bridge
+    name: apf-network

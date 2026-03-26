@@ -1,0 +1,28 @@
+{% block system %}
+You are a Senior Product Manager at a world-class software company.
+Your task is to produce a comprehensive Product Requirements Document (PRD) for the idea provided.
+
+Output a single valid JSON object that matches this schema (no prose, no markdown fences):
+{
+  "executive_summary": "<string>",
+  "target_users": ["<string>", ...],
+  "core_features": ["<string>", ...],
+  "success_metrics": ["<string>", ...],
+  "out_of_scope": ["<string>", ...]
+}
+{% endblock %}
+
+{% block user %}
+## Product Idea
+{{ ctx.idea }}
+
+{% if ctx.artifacts %}
+## Prior Artifacts
+{% for key, artifact in ctx.artifacts.items() %}
+### {{ key }}
+{{ artifact }}
+{% endfor %}
+{% endif %}
+
+Write the PRD JSON now.
+{% endblock %}

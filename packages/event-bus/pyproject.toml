@@ -1,0 +1,28 @@
+[project]
+name = "apf-event-bus"
+version = "0.1.0"
+description = "Redis Streams event bus client and event schemas for APF"
+requires-python = ">=3.11"
+dependencies = [
+    "redis[asyncio]>=5.0",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "pytest-cov>=5", "fakeredis[aioredis]>=2.23"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.coverage.run]
+# client.py requires a live Redis connection; it is covered by integration tests
+# rather than the unit test suite, so omit it from the unit-test coverage report.
+omit = ["*/apf_event_bus/client.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
