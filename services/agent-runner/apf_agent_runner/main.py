@@ -14,7 +14,7 @@ import structlog
 
 from apf_event_bus import EventBusClient, Streams
 
-from .config import get_config
+from .config import get_settings as get_config
 from .llm_factory import create_llm_provider
 from .runner import AgentRunner
 
