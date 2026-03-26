@@ -1,0 +1,139 @@
+# =============================================================================
+# APF — Local Development Stack
+#
+# Lightweight: uses SQLite (no Postgres) + local filesystem (no MinIO).
+# Only external dependency is Redis (for the event bus).
+# Works with MOCK_LLM=true — no API keys required.
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.local.yml up
+#
+# With a real LLM:
+#   ANTHROPIC_API_KEY=sk-ant-... docker compose -f deploy/docker-compose.local.yml up
+# =============================================================================
+
+name: apf-local
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    networks:
+      - apf-local
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  orchestrator:
+    build:
+      context: ../services/orchestrator
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - apf_local_data:/data
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/apf.db
+      REDIS_URL: redis://redis:6379/0
+      APF_SECRET_KEY: ${APF_SECRET_KEY:-local-dev-secret-change-in-prod}
+      APF_ADMIN_PASSWORD: ${APF_ADMIN_PASSWORD:-admin}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-4-6}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MOCK_LLM: ${MOCK_LLM:-false}
+      # Optional connectors — leave blank to disable
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_DEFAULT_REPO: ${GITHUB_DEFAULT_REPO:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - apf-local
+
+  agent-runner:
+    build:
+      context: ../services/agent-runner
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - apf_local_data:/data
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      ARTIFACT_STORE_URL: http://artifact-store:8001
+      ORCHESTRATOR_URL: http://orchestrator:8000
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-4-6}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MOCK_LLM: ${MOCK_LLM:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - apf-local
+
+  artifact-store:
+    build:
+      context: ../services/artifact-store
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - apf_local_data:/data
+    environment:
+      ARTIFACT_BACKEND: local
+      LOCAL_STORAGE_PATH: /data/artifacts
+      APF_SECRET_KEY: ${APF_SECRET_KEY:-local-dev-secret-change-in-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      - apf-local
+
+  dashboard:
+    build:
+      context: ../services/dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-local
+
+  # Optional: Slack connector
+  slack-connector:
+    build:
+      context: ../services/slack-connector
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_CHANNEL: ${SLACK_CHANNEL:-#apf-pipelines}
+      ORCHESTRATOR_URL: http://orchestrator:8000
+    depends_on:
+      - orchestrator
+    networks:
+      - apf-local
+    profiles:
+      - slack
+
+volumes:
+  apf_local_data:
+    driver: local
+
+networks:
+  apf-local:
+    driver: bridge

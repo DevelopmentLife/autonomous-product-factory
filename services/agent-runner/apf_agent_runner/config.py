@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     LLM_MODEL: str = 'claude-opus-4-6'
     ANTHROPIC_API_KEY: str = ''
     OPENAI_API_KEY: str = ''
+    LITELLM_BASE_URL: str = ''
+    # Set MOCK_LLM=true to run the full pipeline without any API key.
+    # Agents will return realistic-looking stub artifacts — useful for
+    # testing pipeline flow, connector wiring, and the dashboard locally.
+    MOCK_LLM: bool = False
     WORKER_ID: str = 'worker-1'
     LOG_LEVEL: str = 'INFO'
     model_config = {'env_file': '.env'}

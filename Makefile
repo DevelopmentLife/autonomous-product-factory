@@ -9,9 +9,14 @@ SHELL := /usr/bin/env bash
 # Project settings
 PROJECT_NAME    := apf
 COMPOSE_FILE    := deploy/docker-compose.yml
+COMPOSE_LOCAL   := deploy/docker-compose.local.yml
 COMPOSE_DEV     := deploy/docker-compose.dev.yml
 ENV_FILE        := deploy/.env
 OPENAPI_OUTPUT  := openapi.json
+
+# AWS settings (override on CLI: make deploy-aws AWS_REGION=us-west-2)
+AWS_REGION      ?= us-east-1
+AWS_STACK       ?= apf
 
 # Tool detection
 UV              := uv
@@ -19,9 +24,10 @@ PNPM            := pnpm
 DOCKER_COMPOSE  := docker compose
 PYTHON          := $(UV) run python
 
-.PHONY: help install dev test lint lint-python lint-frontend build clean \
-        migrate migrate-create generate-openapi format pre-commit \
-        logs shell-orchestrator shell-postgres
+.PHONY: help install dev dev-local dev-mock test lint lint-python lint-frontend \
+        build clean migrate migrate-create generate-openapi format pre-commit \
+        logs logs-local shell-orchestrator shell-postgres \
+        deploy-aws update-aws teardown-aws aws-params
 
 # ---------------------------------------------------------------------------
 # Help
@@ -48,17 +54,33 @@ install: ## Install all Python and Node dependencies
 # ---------------------------------------------------------------------------
 # Development
 # ---------------------------------------------------------------------------
-dev: $(ENV_FILE) ## Start all services in development mode (hot-reload)
+dev-local: ## LOCAL DEV — SQLite + local files, no Postgres/MinIO (fastest start)
+	@cp -n deploy/.env.example deploy/.env 2>/dev/null || true
+	$(DOCKER_COMPOSE) -f $(COMPOSE_LOCAL) up --build
+
+dev-local-d: ## LOCAL DEV (detached) — same as dev-local but in the background
+	@cp -n deploy/.env.example deploy/.env 2>/dev/null || true
+	$(DOCKER_COMPOSE) -f $(COMPOSE_LOCAL) up --build -d
+
+dev-mock: ## MOCK MODE — full pipeline with zero API keys (for UI / wiring tests)
+	@cp -n deploy/.env.example deploy/.env 2>/dev/null || true
+	MOCK_LLM=true $(DOCKER_COMPOSE) -f $(COMPOSE_LOCAL) up --build
+
+dev: $(ENV_FILE) ## Full dev stack — Postgres + MinIO + hot-reload
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) up --build
 
-dev-detach: $(ENV_FILE) ## Start all services in development mode (detached)
+dev-detach: $(ENV_FILE) ## Full dev stack (detached)
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) up --build -d
 
-down: ## Stop all running containers
-	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) down
+down: ## Stop local containers (all compose files)
+	$(DOCKER_COMPOSE) -f $(COMPOSE_LOCAL) down 2>/dev/null || true
+	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) down 2>/dev/null || true
 
-logs: ## Tail logs for all services
+logs: ## Tail logs — full dev stack
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) logs -f --tail=100
+
+logs-local: ## Tail logs — local dev stack
+	$(DOCKER_COMPOSE) -f $(COMPOSE_LOCAL) logs -f --tail=100
 
 $(ENV_FILE):
 	@echo ">>> .env not found — copying from .env.example"
@@ -207,3 +229,53 @@ shell-orchestrator: ## Open a shell in the running orchestrator container
 shell-postgres: ## Open a psql shell in the running postgres container
 	$(DOCKER_COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) exec postgres \
 		psql -U $${POSTGRES_USER:-apf} -d $${POSTGRES_DB:-apf}
+
+# ---------------------------------------------------------------------------
+# AWS — Deploy to ECS Fargate
+# ---------------------------------------------------------------------------
+# First-time setup: store secrets in SSM Parameter Store
+# Then: make deploy-aws
+# Updates after code changes: make update-aws  (skips CloudFormation, faster)
+# ---------------------------------------------------------------------------
+aws-params: ## Print commands to set required SSM parameters (run once before first deploy)
+	@echo ""
+	@echo "Run these commands to configure APF secrets in AWS SSM Parameter Store:"
+	@echo "(Replace placeholder values with your real secrets)"
+	@echo ""
+	@echo "  # Required"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/APF_SECRET_KEY \\"
+	@echo "    --value \"\$$(openssl rand -hex 32)\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/APF_ADMIN_PASSWORD \\"
+	@echo "    --value \"yourpassword\" --type SecureString --region $(AWS_REGION)"
+	@echo ""
+	@echo "  # LLM key (or leave blank for mock mode)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/ANTHROPIC_API_KEY \\"
+	@echo "    --value \"sk-ant-...\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/OPENAI_API_KEY \\"
+	@echo "    --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo ""
+	@echo "  # GitHub (optional — enables PR creation)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/GITHUB_APP_ID --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/GITHUB_APP_PRIVATE_KEY --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/GITHUB_WEBHOOK_SECRET --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/GITHUB_DEFAULT_REPO --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo ""
+	@echo "  # Slack (optional)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/SLACK_BOT_TOKEN --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo "  aws ssm put-parameter --name /$(AWS_STACK)/SLACK_SIGNING_SECRET --value \"\" --type SecureString --region $(AWS_REGION)"
+	@echo ""
+
+deploy-aws: ## DEPLOY to AWS ECS Fargate (builds images, pushes to ECR, deploys CloudFormation)
+	@echo ">>> Deploying APF to AWS (region: $(AWS_REGION), stack: $(AWS_STACK))..."
+	chmod +x deploy/aws/deploy.sh
+	AWS_DEFAULT_REGION=$(AWS_REGION) APF_STACK=$(AWS_STACK) deploy/aws/deploy.sh
+
+update-aws: ## UPDATE AWS deployment — rebuild images and force ECS redeployment (no CloudFormation)
+	@echo ">>> Updating APF images on AWS (skipping CloudFormation)..."
+	chmod +x deploy/aws/deploy.sh
+	AWS_DEFAULT_REGION=$(AWS_REGION) APF_STACK=$(AWS_STACK) deploy/aws/deploy.sh --update-only
+
+teardown-aws: ## DESTROY AWS stack (requires typing the stack name to confirm)
+	@echo ">>> Tearing down APF AWS stack '$(AWS_STACK)'..."
+	chmod +x deploy/aws/teardown.sh
+	AWS_DEFAULT_REGION=$(AWS_REGION) APF_STACK=$(AWS_STACK) deploy/aws/teardown.sh
