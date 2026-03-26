@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
         result = await s.execute(select(User).where(User.email == 'admin@apf.local'))
         if not result.scalar_one_or_none():
             s.add(User(id=str(uuid.uuid4()), email='admin@apf.local',
-                       hashed_password=hash_password('changeme'),
+                       hashed_password=hash_password(settings.APF_ADMIN_PASSWORD),
                        role='admin', is_active=True, created_at=datetime.utcnow()))
             await s.commit()
     yield

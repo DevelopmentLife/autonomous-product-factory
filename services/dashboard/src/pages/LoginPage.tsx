@@ -4,7 +4,7 @@ import { authApi } from '../api/auth'
 import { useAuthStore } from '../stores/authStore'
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin')
+  const [username, setUsername] = useState('admin@apf.local')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

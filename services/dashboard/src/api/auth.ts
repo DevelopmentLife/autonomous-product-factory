@@ -6,9 +6,13 @@ export interface LoginResponse {
 }
 
 export const authApi = {
-  login: (username: string, password: string) =>
-    apiClient
-      .post<LoginResponse>('/auth/login', { username, password })
-      .then((r) => r.data),
+  login: (username: string, password: string) => {
+    const body = new URLSearchParams({ username, password })
+    return apiClient
+      .post<LoginResponse>('/auth/login', body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+      .then((r) => r.data)
+  },
   whoami: () => apiClient.get('/auth/whoami').then((r) => r.data),
 }
