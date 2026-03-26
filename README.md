@@ -1,6 +1,6 @@
 # Autonomous Product Factory (APF)
 
-[![CI](https://github.com/Zackanduril/autonomous-product-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/Zackanduril/autonomous-product-factory/actions/workflows/ci.yml)
+[![CI](https://github.com/DevelopmentLife/autonomous-product-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/DevelopmentLife/autonomous-product-factory/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
 [![React 18](https://img.shields.io/badge/react-18-blue.svg)](https://react.dev)
@@ -244,7 +244,7 @@ APF is a polyglot microservices system. All backend services are **Python 3.12 +
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/Zackanduril/autonomous-product-factory.git
+git clone https://github.com/DevelopmentLife/autonomous-product-factory.git
 cd autonomous-product-factory
 cp deploy/.env.example deploy/.env
 ```
@@ -678,7 +678,7 @@ LITELLM_BASE_URL=http://localhost:11434
 
 ```bash
 # Clone
-git clone https://github.com/Zackanduril/autonomous-product-factory.git
+git clone https://github.com/DevelopmentLife/autonomous-product-factory.git
 cd autonomous-product-factory
 
 # Install uv (Python package manager)
