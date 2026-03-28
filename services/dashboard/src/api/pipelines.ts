@@ -25,7 +25,10 @@ export interface CreatePipelineRequest {
 }
 
 export const pipelinesApi = {
-  list: () => apiClient.get<Pipeline[]>('/pipelines').then((r) => r.data),
+  list: () =>
+    apiClient.get<{ items: Pipeline[] } | Pipeline[]>('/pipelines').then((r) =>
+      Array.isArray(r.data) ? r.data : r.data.items,
+    ),
   get: (id: string) => apiClient.get<Pipeline>(`/pipelines/${id}`).then((r) => r.data),
   create: (data: CreatePipelineRequest) =>
     apiClient.post<Pipeline>('/pipelines', data).then((r) => r.data),
