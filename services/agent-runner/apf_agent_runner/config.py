@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     model_config = {'env_file': '.env'}
 
 
+AgentRunnerConfig = Settings
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
