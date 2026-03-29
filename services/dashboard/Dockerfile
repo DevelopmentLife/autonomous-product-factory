@@ -2,7 +2,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json ./
 RUN --mount=type=cache,target=/root/.npm npm install
-COPY . .
+COPY src/ ./src/
+COPY index.html tsconfig.json tsconfig.node.json vite.config.ts tailwind.config.js postcss.config.js ./
 RUN npx vite build
 
 FROM nginx:alpine
