@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select
+import redis.asyncio as aioredis
 from .config import get_settings
 from .db import make_engine, init_db, User
 from .core.engine import PipelineEngine
@@ -18,9 +19,10 @@ async def lifespan(app: FastAPI):
     engine = make_engine(settings.DATABASE_URL)
     await init_db(engine)
     sf = async_sessionmaker(engine, expire_on_commit=False)
+    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     app.state.db_engine = engine
     app.state.session_factory = sf
-    app.state.pipeline_engine = PipelineEngine(settings, engine)
+    app.state.pipeline_engine = PipelineEngine(settings, engine, redis_client=redis_client)
     async with sf() as s:
         result = await s.execute(select(User).where(User.email == 'admin@apf.local'))
         if not result.scalar_one_or_none():
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI):
                        role='admin', is_active=True, created_at=datetime.utcnow()))
             await s.commit()
     yield
+    await redis_client.aclose()
     await engine.dispose()
 
 

@@ -22,6 +22,7 @@ class StageDispatchEvent(BaseModel):
     event_id: str = Field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     pipeline_id: str
+    run_id: str = ""
     stage_id: str
     stage_name: str
     idea: str
